@@ -4,7 +4,7 @@
 ![Sensor](https://img.shields.io/badge/SD-Card-blue.svg)
 
 ## Sobre o Projeto
-Este projeto visa criar um firmware para controlar e vizualizar os LEDs pelo joystick e pelos botões A e B e estes dados são gravados no SD Card, com o display Oled pode ser observado os comandos.
+Este projeto tem como objetivo desenvolver um firmware capaz de controlar e visualizar LEDs por meio do joystick e dos botões A e B, quando os botões são pressionados simultaneamente, o sistema aciona o buzzer. Além disso, o firmware realiza a captura de sons via microfone, armazenando os dados em um cartão SD e todos os eventos podem ser monitorados em tempo real através do display OLED.
 
 
 ## 🛠️ Estrutura do projeto
@@ -20,6 +20,9 @@ Hardware:
 - SD Card
 - LEDs
 - Buzzer
+- Joystick
+- Microfone
+- Temperatura interna
 
 ## ⚙️ Como usar
 1- Clone o repositorio
@@ -32,10 +35,24 @@ Hardware:
 ## 🔧 Funcionamento do Código
 O programa realiza as seguintes ações:
 
+## PINAGEM
+- LED_VERMELHO 13
+- LED_VERDE    11
+- LED_AZUL     12
+- BUZZER       21
+- BOTAO_A      5
+- BOTAO_B      6
+- JOY_X        26
+- JOY_Y        27
+- MIC_ADC      28
+- PIN_MISO     16
+- PIN_MOSI     19
+- PIN_SCK      18
+- PIN_CS       17
+  
 1. Inicialização dos periféricos
-- Gpio: 16 | 19 | 18 | 17 | 22 | para o sd card
-- Inicializa o sensor vl53l0x e o display OLED SSD1306
-- Configura os pinos dos LEDs RGB e buzzer
+- Gpio: 16 | 19 | 18 | 17 | para o sd card
+- Configura os pinos dos LEDs RGB, buzzer, joystick, microfone e botões
 
 2. Leitura de componentes
 A cada segundo, o sistema:
@@ -47,7 +64,7 @@ A cada segundo, o sistema:
  
  
 4. SD Card
--  A cada presença detectada é gravado no cartão SD: movimento jostick e botões
+-  A cada presença detectada é gravado no cartão SD o evento: movimento jostick, botão a ativado ou botão b ativado, em caso dos botões acionados ao mesmo tempo o evento gravado será o buzzer ativado, também é armazenado no cartão a temperatura interna da placa e sons detectados.
 
 ## 📦 Dependências
 

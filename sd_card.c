@@ -9,15 +9,15 @@
 #include "inc/ssd1306.h"
 #include "inc/ssd1306_fonts.h"
 
-// === Definições de pinos ===
 #define LED_VERMELHO 13
 #define LED_VERDE    11
 #define LED_AZUL     12
 #define BUZZER       21
 #define BOTAO_A      5
 #define BOTAO_B      6
-#define JOY_X        26  // ADC0
-#define JOY_Y        27  // ADC1
+#define JOY_X        26
+#define JOY_Y        27
+#define MIC_ADC      28
 
 #define PIN_MISO     16
 #define PIN_MOSI     19
@@ -28,10 +28,12 @@
 #define SCL_I2C      9
 #define I2C_PORT     i2c0
 
+#define AMOSTRAS_AUDIO 16000
+uint16_t buffer_audio[AMOSTRAS_AUDIO];
+
 FATFS fs;
 FIL file;
 
-// === Inicializa cartão SD via SPI ===
 void inicializar_sd() {
     spi_init(spi0, 1000 * 1000);
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
@@ -45,32 +47,37 @@ void inicializar_sd() {
     if (fr != FR_OK) {
         printf("Erro ao montar SD: %d\n", fr);
     } else {
-        printf("Cartão SD montado com sucesso.\n");
-        fr = f_open(&file, "bitdoglab.txt", FA_WRITE | FA_OPEN_APPEND);
-        if (fr != FR_OK) {
-            printf("Erro ao abrir arquivo: %d\n", fr);
-        } else {
-            f_puts("Evento,Timestamp\n", &file);
+        printf("Cartão SD montado.\n");
+        fr = f_open(&file, "bitdoglab.csv", FA_WRITE | FA_OPEN_APPEND);
+        if (fr == FR_OK) {
+            f_puts("Tipo,Valor,Timestamp\n", &file);
             f_sync(&file);
         }
     }
 }
 
-// === Registra evento no SD com timestamp ===
 void registrar_evento(const char* evento) {
     char linha[64];
-    snprintf(linha, sizeof(linha), "%s,%lu\n", evento, to_ms_since_boot(get_absolute_time()));
+    snprintf(linha, sizeof(linha), "Evento,%s,%lu\n", evento, to_ms_since_boot(get_absolute_time()));
     UINT bw;
-    FRESULT fr = f_write(&file, linha, strlen(linha), &bw);
-    if (fr != FR_OK) {
-        printf("Erro ao escrever no arquivo: %d\n", fr);
-    } else {
-        f_sync(&file);
-        printf("Evento registrado: %s", linha);
-    }
+    if (f_write(&file, linha, strlen(linha), &bw) == FR_OK) f_sync(&file);
 }
 
-// === Exibe evento no OLED ===
+float ler_temperatura_interna() {
+    adc_select_input(4);
+    uint16_t leitura = adc_read();
+    float voltagem = leitura * (3.3f / 4096);
+    return 27.0f - (voltagem - 0.706f) / 0.001721f;
+}
+
+void registrar_temperatura() {
+    float temp = ler_temperatura_interna();
+    char linha[64];
+    snprintf(linha, sizeof(linha), "Temperatura,%.2f,%lu\n", temp, to_ms_since_boot(get_absolute_time()));
+    UINT bw;
+    if (f_write(&file, linha, strlen(linha), &bw) == FR_OK) f_sync(&file);
+}
+
 void exibir_oled(const char* mensagem) {
     ssd1306_Fill(Black);
     ssd1306_SetCursor(0, 0);
@@ -80,41 +87,98 @@ void exibir_oled(const char* mensagem) {
     ssd1306_UpdateScreen();
 }
 
-// === Função principal ===
+void exibir_temperatura_oled(float temp) {
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "Temp interna: %.2f C", temp);
+    ssd1306_Fill(Black);
+    ssd1306_SetCursor(0, 0);
+    ssd1306_WriteString("MONITORAMENTO", Font_6x8, White);
+    ssd1306_SetCursor(0, 16);
+    ssd1306_WriteString(buffer, Font_6x8, White);
+    ssd1306_UpdateScreen();
+}
+
+void capturar_audio_raw() {
+    adc_select_input(2);
+    FIL audio_file;
+    FRESULT fr = f_open(&audio_file, "audio3.raw", FA_WRITE | FA_CREATE_ALWAYS);
+    if (fr != FR_OK) {
+        printf("Erro ao abrir audio.raw: %d\n", fr);
+        return;
+    }
+
+    for (int i = 0; i < AMOSTRAS_AUDIO; i++) {
+        buffer_audio[i] = adc_read();
+        UINT bw;
+        f_write(&audio_file, &buffer_audio[i], sizeof(uint16_t), &bw);
+        sleep_us(62);
+    }
+
+    f_sync(&audio_file);
+    f_close(&audio_file);
+    registrar_evento("AUDIO CAPTURADO");
+    exibir_oled("AUDIO SALVO NO SD");
+}
+
+
+void detectar_som() {
+    adc_select_input(2);
+    uint32_t soma = 0;
+    uint16_t pico = 0;
+    const int N = 100;
+
+    for (int i = 0; i < N; i++) {
+        uint16_t amostra = adc_read();
+        soma += amostra;
+        if (amostra > pico) pico = amostra;
+        sleep_us(100);
+    }
+
+    uint16_t media = soma / N;
+
+    if (pico > 3500 || media > 2500)
+
+    {
+        capturar_audio_raw();
+        registrar_evento("SOM DETECTADO");
+        exibir_oled("SOM DETECTADO");
+        gpio_put(BUZZER, 1);
+        sleep_ms(200);
+        gpio_put(BUZZER, 0);
+    }
+}
+
+
 int main() {
     stdio_init_all();
     while (!stdio_usb_connected()) sleep_ms(100);
 
-    // Inicializa I2C para OLED
     i2c_init(I2C_PORT, 100 * 1000);
     gpio_set_function(SDA_I2C, GPIO_FUNC_I2C);
     gpio_set_function(SCL_I2C, GPIO_FUNC_I2C);
     gpio_pull_up(SDA_I2C);
     gpio_pull_up(SCL_I2C);
-
-    // Inicializa OLED
     ssd1306_Init();
     ssd1306_Fill(Black);
     ssd1306_UpdateScreen();
 
-    // Inicializa GPIOs
     gpio_init(LED_VERMELHO); gpio_set_dir(LED_VERMELHO, GPIO_OUT);
     gpio_init(LED_VERDE);    gpio_set_dir(LED_VERDE, GPIO_OUT);
     gpio_init(LED_AZUL);     gpio_set_dir(LED_AZUL, GPIO_OUT);
     gpio_init(BUZZER);       gpio_set_dir(BUZZER, GPIO_OUT);
-
     gpio_init(BOTAO_A); gpio_set_dir(BOTAO_A, GPIO_IN); gpio_pull_up(BOTAO_A);
     gpio_init(BOTAO_B); gpio_set_dir(BOTAO_B, GPIO_IN); gpio_pull_up(BOTAO_B);
 
-    // Inicializa ADC para joystick
     adc_init();
     adc_gpio_init(JOY_X);
     adc_gpio_init(JOY_Y);
+    adc_gpio_init(MIC_ADC);
+    adc_select_input(4);
 
-    // Inicializa cartão SD
     inicializar_sd();
 
-    // === Loop principal ===
+    uint32_t ultimo_registro = 0;
+
     while (true) {
         bool a_pressionado = !gpio_get(BOTAO_A);
         bool b_pressionado = !gpio_get(BOTAO_B);
@@ -150,8 +214,16 @@ int main() {
             gpio_put(LED_AZUL, 0);
         }
 
+        detectar_som();
+
+        uint32_t agora = to_ms_since_boot(get_absolute_time());
+        if (agora - ultimo_registro > 5000) {
+            float temp = ler_temperatura_interna();
+            registrar_temperatura();
+            exibir_temperatura_oled(temp);
+            ultimo_registro = agora;
+        }
+
         sleep_ms(200);
     }
-
-    return 0;
 }

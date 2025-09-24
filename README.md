@@ -1,4 +1,35 @@
-# PICO_COLAB
+# 🎤🕹📢PICO_COLAB
+![Linguagem](https://img.shields.io/badge/Linguagem-C-blue.svg)
+![Linguagem](https://img.shields.io/badge/Linguagem-python-green.svg)
+![Plataforma](https://img.shields.io/badge/Plataforma-Raspberry%20Pi%20Pico-purple.svg)
+![Sensor](https://img.shields.io/badge/colab-yellow.svg)
+![Sensor](https://img.shields.io/badge/microfone-red.svg)
+
+## Neste repositório, há dois tipos principais de amostragem: amostragem de temperatura e eventos da BitDogLab, envolvendo ações como acionamento de botões, buzzer e joystick, conforme descrito abaixo e amostragem de áudio via microfone, abordada no notebook PICO_MIC1.ipynb, que demonstra a captura e análise de sinais sonoros com o Raspberry Pi Pico.
+
+> ⚠️ **Atenção:** Este repositório possui múltiplas branches.  
+> A branch principal é `main`, mas há conteúdo complementar na branch [`master`](https://github.com/tacinunesc/PICO_COLAB/tree/master), incluindo arquivos de coleta de dados realizada pela bitdoglab. 
+
+
+
+## 🎤 PICO_MIC1.ipynb 
+
+Este notebook demonstra como utilizar um microfone com o Raspberry Pi Pico para captura e análise de sinais sonoros. Ele inclui:
+
+🔊 Aquisição de dados de áudio via microfone conectado ao Pico.
+
+📊 Visualização de formas de onda e espectros de frequência.
+
+🧠 Processamento de sinais para identificação de padrões acústicos.
+
+🛠️ Exemplos práticos de uso com bibliotecas como NumPy e Matplotlib.
+
+CLIQUE AQUI! 📘 [PICO_MIC1.ipynb](https://github.com/tacinunesc/PICO_COLAB/blob/main/PICO_MIC1.ipynb)
+
+
+
+
+
 
 ## 🌡️ Temperatura registrada pelo Pico
 O Pico coleta dados de temperatura em tempo real, esses dados foram analisados e visualizados no notebook. 
